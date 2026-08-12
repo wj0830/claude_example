@@ -142,7 +142,7 @@ function App() {
           </div>
         )}
 
-        {components.length === 0 && !isLoading && (
+        {components.length === 0 && (
           <div className="empty-state">
             <div className="empty-preview" aria-hidden="true">
               <div className="empty-window">
@@ -159,13 +159,6 @@ function App() {
             <div className="empty-copy">
               <h2>새 컴포넌트를 생성해보세요.</h2>
             </div>
-          </div>
-        )}
-
-        {isLoading && (
-          <div className="loading-card">
-            <div className="loading-pulse" />
-            <p>컴포넌트를 생성하고 있습니다...</p>
           </div>
         )}
 

@@ -14,8 +14,20 @@ interface ComponentCardProps {
 type Tab = 'preview' | 'code';
 
 export function ComponentCard({ component, onRemove, onRegenerate, isLoading }: ComponentCardProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('preview');
+  const isPreviewReady = component.status === 'complete';
+  const [activeTab, setActiveTab] = useState<Tab>(isPreviewReady ? 'preview' : 'code');
   const [previewKey, setPreviewKey] = useState(0);
+
+  // status prop이 바뀔 때만 반응해야 하므로 렌더링 중 이전 값과 비교해 조정한다
+  // (React가 권장하는 "prop 변화에 반응해 state를 조정하는" 패턴 — Effect 불필요).
+  const [prevStatus, setPrevStatus] = useState(component.status);
+  if (component.status !== prevStatus) {
+    setPrevStatus(component.status);
+    if (component.status === 'complete') {
+      setActiveTab('preview');
+    }
+  }
+
   const createdAt = component.createdAt.toLocaleTimeString('ko-KR', {
     hour: '2-digit',
     minute: '2-digit',
@@ -60,6 +72,7 @@ export function ComponentCard({ component, onRemove, onRegenerate, isLoading }: 
           className={`tab ripple-surface ${activeTab === 'preview' ? 'tab--active' : ''}`}
           onClick={() => setActiveTab('preview')}
           onPointerDown={spawnRipple}
+          disabled={!isPreviewReady}
         >
           미리보기
         </button>
@@ -72,10 +85,10 @@ export function ComponentCard({ component, onRemove, onRegenerate, isLoading }: 
         </button>
       </div>
       <div className="card-content">
-        {activeTab === 'preview' ? (
+        {activeTab === 'preview' && isPreviewReady ? (
           <LivePreview key={previewKey} code={component.code} />
         ) : (
-          <CodeView code={component.code} />
+          <CodeView code={component.code} disableCopy={!isPreviewReady} />
         )}
       </div>
     </div>

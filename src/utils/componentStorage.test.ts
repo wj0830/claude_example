@@ -4,6 +4,7 @@ import {
   deserializeComponents,
   loadComponents,
   saveComponents,
+  filterPersistable,
   COMPONENTS_STORAGE_KEY,
 } from './componentStorage';
 import type { GeneratedComponent } from '../types';
@@ -24,6 +25,7 @@ describe('componentStorage', () => {
         prompt: '프로필 카드',
         code: 'render(<div />)',
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        status: 'complete',
       },
     ];
 
@@ -36,6 +38,40 @@ describe('componentStorage', () => {
     expect(restored[0].code).toBe('render(<div />)');
     expect(restored[0].createdAt).toBeInstanceOf(Date);
     expect(restored[0].createdAt.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+    expect(restored[0].status).toBe('complete');
+  });
+
+  it('should_status필드없는레거시데이터_역직렬화하면_complete로기본값처리', () => {
+    const legacyRaw = JSON.stringify([
+      {
+        id: 'legacy-1',
+        prompt: '레거시 카드',
+        code: 'render(<div />)',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+
+    const restored = deserializeComponents(legacyRaw);
+
+    expect(restored[0].status).toBe('complete');
+  });
+});
+
+describe('filterPersistable', () => {
+  const base = {
+    prompt: '카드',
+    code: 'render(<div />)',
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  };
+
+  it('should_complete상태컴포넌트만_유지한다', () => {
+    const components: GeneratedComponent[] = [
+      { ...base, id: '1', status: 'complete' },
+      { ...base, id: '2', status: 'streaming' },
+      { ...base, id: '3', status: 'error' },
+    ];
+
+    expect(filterPersistable(components).map((c) => c.id)).toEqual(['1']);
   });
 });
 
@@ -60,6 +96,7 @@ describe('loadComponents', () => {
         prompt: '버튼',
         code: 'render(<button />)',
         createdAt: new Date('2026-02-02T00:00:00.000Z'),
+        status: 'complete',
       },
     ];
     localStorage.setItem(COMPONENTS_STORAGE_KEY, serializeComponents(components));
@@ -92,6 +129,7 @@ describe('saveComponents', () => {
         prompt: '카드',
         code: 'render(<div />)',
         createdAt: new Date('2026-03-03T00:00:00.000Z'),
+        status: 'complete',
       },
     ];
 

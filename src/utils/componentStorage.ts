@@ -14,10 +14,16 @@ export function deserializeComponents(raw: string | null): GeneratedComponent[] 
     return parsed.map((component) => ({
       ...component,
       createdAt: new Date(component.createdAt),
+      status: component.status ?? 'complete',
     }));
   } catch {
     return [];
   }
+}
+
+/** 스트리밍 중이거나 실패한 항목은 새로고침 시 복원하지 않도록 저장 대상에서 제외한다. */
+export function filterPersistable(components: GeneratedComponent[]): GeneratedComponent[] {
+  return components.filter((component) => component.status === 'complete');
 }
 
 export function loadComponents(): GeneratedComponent[] {

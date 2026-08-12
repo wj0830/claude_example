@@ -3,9 +3,10 @@ import { spawnRipple } from '../utils/ripple';
 
 interface CodeViewProps {
   code: string;
+  disableCopy?: boolean;
 }
 
-export function CodeView({ code }: CodeViewProps) {
+export function CodeView({ code, disableCopy = false }: CodeViewProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -18,7 +19,12 @@ export function CodeView({ code }: CodeViewProps) {
     <div className="code-panel">
       <div className="panel-header">
         <h3>코드</h3>
-        <button className="btn-copy ripple-surface" onClick={handleCopy} onPointerDown={spawnRipple}>
+        <button
+          className="btn-copy ripple-surface"
+          onClick={handleCopy}
+          onPointerDown={spawnRipple}
+          disabled={disableCopy}
+        >
           {copied ? '복사됨!' : '복사'}
         </button>
       </div>

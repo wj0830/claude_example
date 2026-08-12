@@ -17,12 +17,12 @@ Bun 기반 API 프록시 서버. Anthropic/Google 두 AI 프로바이더에 컴�
 ## Testing Strategy
 
 - 테스트 명령: `bun run test` (프로젝트 루트에서 실행, `vitest.config`의 `include`가 `server/**/*.test.ts`를 포함).
-- 테스트 파일은 대상 모듈과 같은 폴더에 `*.test.ts`로 둔다 (`generator.test.ts`, `fallback.test.ts`).
+- 테스트 파일은 대상 모듈과 같은 폴더에 `*.test.ts`로 둔다 (`generator.test.ts`, `fallback.test.ts`, `streamProtocol.test.ts`).
 - `index.ts`(HTTP 핸들러)는 관례상 테스트하지 않는다 — 새 검증/변환 로직은 `index.ts`에 직접 넣지 말고 테스트 가능한 순수 함수로 뽑아낸다.
 
 ## Local Golden Rules
 
-- **Security Boundary — 클라이언트 API 키를 로깅/에코하지 않는다.** `resolveApiKey`(`server/index.ts:64-66`)는 `clientKey || ENV_KEYS[provider] || null` 순으로 키를 결정한다. 에러 응답(`server/index.ts:191-211`)이나 로그에 `apiKey` 원문을 포함시키지 않는 현재 관례를 유지한다.
-- **Double Defense — 코드펜스 제거는 이중 방어의 일부다.** SYSTEM_PROMPT는 "마크다운 펜스 없이 코드 블록만" 응답하라고 지시하지만(`server/index.ts:16`), 실제 모델 응답에는 ```` ``` ```` 펜스가 섞여 나올 수 있어 `stripCodeFences`(`server/generator.ts:5-10`)가 후처리한다. 프롬프트 문구를 다듬더라도 `stripCodeFences` 호출(`server/index.ts:188`)을 제거하지 않는다.
-- **Asymmetry — Google 응답만 `MAX_TOKENS` 종료 사유를 별도 처리한다.** `callGoogleModel`(`server/index.ts:98-132`)은 `finishReason === 'MAX_TOKENS'`일 때 사용자에게 "코드가 너무 길어 잘렸다"는 한국어 안내를 던진다(`server/index.ts:123-125`). `callAnthropic`(`server/index.ts:68-96`)에는 대응하는 처리가 없다 — Anthropic 응답 포맷에 `stop_reason: "max_tokens"`가 와도 현재는 별도 안내 없이 그대로 반환된다는 점을 인지하고, 두 경로를 억지로 대칭시키려 하지 않는다.
-- **Hard Constraint — 에러 매핑은 문자열 포함 검사에 의존한다.** `503`/`429` 처리(`server/index.ts:194-206`)는 `err.message.includes('503'|'429')`로 판단한다. 업스트림 API의 에러 메시지 포맷이 바뀌면(HTTP 상태 코드가 메시지 문자열에 그대로 안 들어가면) 이 매핑이 조용히 깨진다 — 에러 처리를 바꿀 때는 이 문자열 검사 지점도 함께 갱신한다.
+- **Security Boundary — 클라이언트 API 키를 로깅/에코하지 않는다.** `resolveApiKey`(`server/index.ts:71-73`)는 `clientKey || ENV_KEYS[provider] || null` 순으로 키를 결정한다. 에러 응답(`server/index.ts:263-284`)이나 로그에 `apiKey` 원문을 포함시키지 않는 현재 관례를 유지한다.
+- **Double Defense — 코드펜스 제거는 이중 방어의 일부다.** SYSTEM_PROMPT는 "마크다운 펜스 없이 코드 블록만" 응답하라고 지시하지만(`server/index.ts:23`), 실제 모델 응답에는 ```` ``` ```` 펜스가 섞여 나올 수 있어 `stripCodeFences`(`server/generator.ts:5-10`)가 후처리한다. 스트리밍 도입 후에도 이 후처리는 스트림이 끝난 뒤 누적된 전체 텍스트에 한 번만 적용된다(`server/index.ts:248`) — 중간에 흘려보내는 델타 자체는 펜스 제거 전 원문 그대로다.
+- **Asymmetry — Google 응답만 `MAX_TOKENS` 종료 사유를 별도 처리한다.** `relaySSEToDeltas`가 반환하는 `finishReason`이 `'MAX_TOKENS'`이면(`server/index.ts:238`) 사용자에게 "코드가 너무 길어 잘렸다"는 한국어 안내를 NDJSON `error` 이벤트로 보낸다. Anthropic 경로에는 대응하는 처리가 없다 — `stop_reason: "max_tokens"`가 와도 현재는 별도 안내 없이 그대로 반환된다. **주의**: 이 감지는 스트림이 이미 클라이언트로 델타를 보낸 뒤에 일어나므로(스트림 끝의 마지막 청크에서만 `finishReason`을 알 수 있음), 과거처럼 다른 모델로 재시도하지 않는다 — 부분 코드는 그대로 두고 에러 이벤트만 추가로 보낸다.
+- **Hard Constraint — 에러 매핑은 문자열 포함 검사에 의존하며, 업스트림 연결 단계에만 적용된다.** `503`/`429` 처리(`server/index.ts:266-278`)는 `err.message.includes('503'|'429')`로 판단한다. 이 매핑은 `connectAnthropicStream`/`connectGoogleStream`이 업스트림 연결을 열 때(비-2xx 응답) 던지는 에러에만 적용된다 — 일단 `ReadableStream`이 열리고 200 응답 헤더가 나간 뒤에는 HTTP 상태를 바꿀 수 없으므로, 그 이후의 실패는 전부 NDJSON `error` 이벤트로 클라이언트에 전달된다(`server/index.ts:251-253`). 업스트림 API의 에러 메시지 포맷이 바뀌면 이 매핑이 조용히 깨지므로, 에러 처리를 바꿀 때는 이 문자열 검사 지점도 함께 갱신한다.
