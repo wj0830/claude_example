@@ -19,3 +19,19 @@ export function deserializeComponents(raw: string | null): GeneratedComponent[] 
     return [];
   }
 }
+
+export function loadComponents(): GeneratedComponent[] {
+  try {
+    return deserializeComponents(localStorage.getItem(COMPONENTS_STORAGE_KEY));
+  } catch {
+    return [];
+  }
+}
+
+export function saveComponents(components: GeneratedComponent[]): void {
+  try {
+    localStorage.setItem(COMPONENTS_STORAGE_KEY, serializeComponents(components));
+  } catch {
+    // localStorage 접근 불가/용량 초과 시 무시
+  }
+}
