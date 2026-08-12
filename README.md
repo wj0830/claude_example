@@ -35,3 +35,10 @@ bun run dev
 - **새로고침**: 애니메이션 컴포넌트를 리마운트하여 다시 보기
 - **재생성**: 같은 프롬프트로 AI에 다시 요청
 - **예시 프롬프트**: 시각적 임팩트가 큰 예시 제공
+- **자동 PR 생성**: create-pr 스킬로 작업 브랜치 자동 PR 생성
+
+## 개발 가이드
+
+자세한 개발 규칙과 스킬은 `CLAUDE.md`와 `AGENTS.md`를 참고하세요.
+- TDD 규칙: `.claude/rules/tdd.md`
+- create-pr 스킬: `.claude/create-pr/`
